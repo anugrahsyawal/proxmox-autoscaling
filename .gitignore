@@ -1,0 +1,7 @@
+terraform.tfstate*
+terraform/.terraform/
+terraform.tfvars
+*.log
+*.zip
+*.tar.gz
+__pycache__/

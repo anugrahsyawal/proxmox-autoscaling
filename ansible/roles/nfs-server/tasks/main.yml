@@ -1,0 +1,56 @@
+---
+- name: Install NFS server and unzip packages
+  apt:
+    name:
+      - nfs-kernel-server
+      - unzip
+    state: present
+    update_cache: true
+
+- name: Download latest WordPress to NFS
+  get_url:
+    url: https://wordpress.org/latest.zip
+    dest: /tmp/latest.zip
+
+- name: Unzip WordPress to NFS
+  unarchive:
+    src: /tmp/latest.zip
+    dest: /srv/nfs/
+    remote_src: yes
+
+- name: Set permissions for WordPress directory in NFS
+  file:
+    path: /srv/nfs/wordpress
+    owner: www-data
+    group: www-data
+    recurse: yes
+    state: directory
+
+- name: Copy wp-config.php template to NFS
+  template:
+    src: wp-config.php.j2
+    dest: /srv/nfs/wordpress/wp-config.php
+    owner: www-data
+    group: www-data
+    mode: '0644'
+
+- name: Create NFS export directory
+  file:
+    path: /srv/nfs/wordpress
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+
+- name: Configure NFS exports
+  copy:
+    dest: /etc/exports
+    content: |
+      /srv/nfs/wordpress 10.2.22.0/23(rw,sync,no_subtree_check,no_root_squash)
+  notify: Reload NFS server
+
+- name: Ensure NFS server is running
+  service:
+    name: nfs-kernel-server
+    state: started
+    enabled: yes

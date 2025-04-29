@@ -1,0 +1,37 @@
+---
+- name: Install Python PyMySQL library
+  apt:
+    name: python3-pymysql
+    state: present
+    update_cache: true
+
+- name: Install MariaDB server
+  apt:
+    name:
+      - mariadb-server
+    state: present
+    update_cache: true
+
+- name: Ensure MariaDB service is running
+  service:
+    name: mariadb
+    state: started
+    enabled: yes
+
+- name: Create WordPress database user
+  community.mysql.mysql_user:
+    name: wordpress
+    password: wordpress
+    priv: "wordpress.*:ALL"
+    host: "%"
+    state: present
+    login_user: ansible
+    login_password: ansiblepassword
+
+- name: Allow remote connections (bind-address 0.0.0.0)
+  lineinfile:
+    path: /etc/mysql/mariadb.conf.d/50-server.cnf
+    regexp: '^bind-address'
+    line: 'bind-address = 0.0.0.0'
+    backup: yes
+  notify: Restart MariaDB

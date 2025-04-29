@@ -1,0 +1,13 @@
+upstream backend {
+    server 10.2.22.21;
+    server 10.2.22.22;
+    server 10.2.22.23;
+}
+
+server {
+    listen 80;
+    server_name _;
+    location /wordpress {
+        proxy_pass http://backend;
+    }
+}

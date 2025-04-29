@@ -1,0 +1,25 @@
+# ansible/playbook.yml
+
+- name: Configure web server node
+  hosts: webserver
+  become: yes
+  roles:
+    - webserver
+
+- name: Configure load balancer
+  hosts: loadbalancer
+  become: yes
+  roles:
+    - loadbalancer
+
+- name: Configure nfs server
+  hosts: nfsserver
+  become: yes
+  roles:
+    - nfs-server
+
+- name: Configure database server
+  hosts: dbserver
+  become: yes
+  roles:
+    - db-server
