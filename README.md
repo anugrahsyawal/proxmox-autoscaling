@@ -1,86 +1,87 @@
-# Proxmox Autoscaling Infrastructure with Terraform, Ansible, and Prometheus
+# 🔄 Proxmox Autoscaling Infrastructure with Terraform, Ansible, and Prometheus
 
-Sistem ini merupakan implementasi **autoscaling virtual machine (VM)** berbasis on-premise menggunakan kombinasi **Proxmox VE**, **Terraform**, **Ansible**, dan **Prometheus**. Sistem ini dirancang untuk secara otomatis melakukan scale in dan scale out VM web server berdasarkan metrik penggunaan CPU dan memori.
+This system implements an **on-premise virtual machine (VM) autoscaling infrastructure** using a combination of **Proxmox VE**, **Terraform**, **Ansible**, and **Prometheus**. It is designed to automatically scale in and scale out web server VMs based on CPU and memory usage metrics.
 
-## 🔧 Teknologi yang Digunakan
-- **Terraform**: Provisioning VM di Proxmox VE.
-- **Ansible**: Setup layanan web server, load balancer, database, dan NFS.
-- **Prometheus** + **Node Exporter**: Monitoring metrik.
-- **Python Autoscaler**: Logika scaling otomatis.
-- **Telegram Bot**: Notifikasi setiap event autoscaling.
+## 🔧 Technology Stack
+- **Terraform**: VM provisioning on Proxmox VE.
+- **Ansible**: Setup for web server, load balancer, database, and NFS services.
+- **Prometheus** + **Node Exporter**: System metric monitoring.
+- **Python Autoscaler**: Handles scaling logic based on Prometheus data.
+- **Telegram Bot**: Sends notifications for every scaling event.
 
-## 📁 Struktur Proyek
+## 📁 Project Structure
 ```
 autoscaling-project/
-├── ansible/                  # Semua konfigurasi Ansible
-│   ├── inventory.ini         # Daftar host yang dikelola
+├── ansible/                  # All Ansible configuration
+│   ├── inventory.ini         # List of managed hosts
 │   ├── playbook.yml         # Main playbook
-│   └── roles/               # Role Ansible: webserver, loadbalancer, etc
-├── terraform/               # File konfigurasi Terraform
+│   └── roles/               # Ansible roles: webserver, loadbalancer, etc
+├── terraform/               # Terraform configuration files
 │   ├── main.tf
 │   ├── variables.tf
-│   └── terraform.tfvars     # (Jangan diunggah ke Git, ada credential)
-├── autoscaler.py            # Script autoscaling berbasis Python
-├── autoscaler.log           # Log autoscaling
-├── .gitignore               # File dan folder yang diabaikan Git
-└── README.md                # Dokumentasi proyek
+│   └── terraform.tfvars     # (Do not commit to Git, contains credentials)
+├── autoscaler.py            # Python-based autoscaling script
+├── autoscaler.log           # Autoscaling event logs
+├── .gitignore               # Ignored files and directories for Git
+└── README.md                # Project documentation
 ```
 
-## 🛠️ Cara Menggunakan
+## 🛠️ How to Use
 
-### 1. Clone Repository
+### 1. Clone the Repository
 ```bash
 git clone https://github.com/username/autoscaling-project.git
 cd autoscaling-project
 ```
 
-### 2. Konfigurasi Terraform
-Edit file `terraform/terraform.tfvars`:
+### 2. Configure Terraform
+Edit the `terraform/terraform.tfvars` file:
 ```hcl
-pm_password = "YOUR_PASSWORD"
-web_ips     = ["10.2.22.21", "10.2.22.22"]
+pm_api_token = "your_proxmox_api_token"
+web_ips      = ["10.2.22.21", "10.2.22.22"]
 ```
-Pastikan file ini ditambahkan ke `.gitignore` karena berisi informasi sensitif.
+Make sure to add this file to `.gitignore` as it contains sensitive credentials.
 
-### 3. Deploy VM
+### 3. Deploy VMs
 ```bash
 cd terraform
 terraform init
 terraform apply
 ```
 
-### 4. Provisioning Infrastruktur
+### 4. Provision Infrastructure with Ansible
 ```bash
 cd ../ansible
 ansible-playbook playbook.yml
 ```
 
-### 5. Jalankan Autoscaler
+### 5. Run the Autoscaler
 ```bash
 cd ..
 python3 autoscaler.py
 ```
-Autoscaler akan memantau metrik dari Prometheus dan melakukan autoscaling jika diperlukan.
+The autoscaler will continuously monitor Prometheus metrics and perform autoscaling as needed.
 
-## 📦 Komponen Infrastruktur
+## 📦 Infrastructure Components
 
 - **Web Server (webserver)**
   - Nginx + PHP + WordPress
-  - Mengakses konten statis dari NFS
-  - Dipantau oleh Node Exporter
+  - Serves static content from NFS
+  - Monitored via Node Exporter
 
 - **Load Balancer (loadbalancer)**
-  - Mengarahkan traffic ke web server aktif
-  - Diperbarui otomatis saat scaling
+  - Routes traffic to active web servers
+  - Automatically updated during scaling events
 
 - **Database Server (db-server)**
-  - MariaDB untuk backend WordPress
-  - Konfigurasi remote user dan remote bind
+  - MariaDB backend for WordPress
+  - Remote access enabled with secure credentials
 
 - **NFS Server (storage-nfs)**
-  - Menyediakan konten WordPress yang shared
-  - Dikonfigurasi sekali, dan dimount oleh setiap web server
+  - Provides shared WordPress content directory
+  - Mounted by all web servers
 
 - **Prometheus**
-  - Mengumpulkan metrik dari semua web server
-  - Terintegrasi dengan autoscaler Python
+  - Collects metrics from all web servers
+  - Integrated with the Python autoscaler for decision-making
+
