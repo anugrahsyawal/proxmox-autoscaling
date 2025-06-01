@@ -36,7 +36,7 @@ resource "proxmox_vm_qemu" "web_server" {
   agent    = 1
   vm_state = "running"
 
-  cores   = 2
+  cores   = 1
   sockets = 1
   memory  = 2048
   scsihw  = "virtio-scsi-single"

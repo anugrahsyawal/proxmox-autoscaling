@@ -8,7 +8,7 @@
 - name:   
   template:
     src: nginx-lb.conf.j2
-    dest: /etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-available/loadbalancer
   notify: Reload nginx
 
 - name: Ensure nginx is running

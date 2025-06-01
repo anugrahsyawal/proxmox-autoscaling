@@ -212,9 +212,9 @@ def autoscaling_decision():
     log(f"📊 CPU: {cpu}% | Memory: {mem}% | Web Servers: {current_count}")
 
     decision = None
-    if (cpu > 80 or mem > 20) and current_count < MAX_INSTANCES:
+    if (cpu > 80 or mem > 80) and current_count < MAX_INSTANCES:
         decision = "Scale OUT"
-    elif (cpu < 20 and mem < 10) and current_count > MIN_INSTANCES:
+    elif (cpu < 20 and mem < 30) and current_count > MIN_INSTANCES:
         decision = "Scale IN"
 
     if decision:
