@@ -1,21 +1,12 @@
-upstream web_backend {
+upstream backend {
     server 10.2.22.21;
     server 10.2.22.22;
 }
 
 server {
     listen 80;
-    server_name _; # Gunakan ini jika Anda tidak memiliki domain spesifik, atau ganti dengan domain Anda
-
-    # Pastikan Anda menggunakan format log kustom yang sudah kita buat sebelumnya
-    # Jika Anda menempatkan 'log_format custom_log' di nginx.conf level http
-    access_log /var/log/nginx/access.log custom_log; 
-
-    location / {
-        proxy_pass http://web_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme; # Sangat direkomendasikan untuk aplikasi web
+    server_name _;
+    location /wordpress {
+        proxy_pass http://backend;
     }
 }

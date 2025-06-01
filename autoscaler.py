@@ -1,6 +1,7 @@
 import requests
 import subprocess
 import time
+import statistics
 import os
 import socket
 from datetime import datetime
@@ -60,6 +61,25 @@ def get_average_metrics():
     cpu_avg = sum(float(item['value'][1]) for item in cpu_result) / len(cpu_result) if cpu_result else 0.0
     mem_avg = sum(float(item['value'][1]) for item in mem_result) / len(mem_result) if mem_result else 0.0
     return round(cpu_avg, 2), round(mem_avg, 2)
+
+def get_response_time(url="http://10.2.22.20/", num_requests=5):
+    latencies = []
+    for _ in range(num_requests):
+        try:
+            start = time.time()
+            response = requests.get(url, timeout=5)
+            elapsed = time.time() - start
+            if response.status_code == 200:
+                latencies.append(elapsed)
+        except Exception as e:
+            log(f"⚠️ Error saat mengukur latency: {e}")
+    
+    if not latencies:
+        return None  # jika semua request gagal
+
+    # Ambil mean sebagai representasi latensi
+    percentile_90 = statistics.quantiles(latencies, n=100)[89]
+    return round(percentile_90 * 1000, 2)  # konversi ke ms
 
 def read_current_ips():
     if not os.path.exists(TFVARS_FILE):
@@ -209,12 +229,34 @@ def autoscaling_decision():
     cpu, mem = get_average_metrics()
     current_ips = read_current_ips()
     current_count = len(current_ips)
+    response_time = get_response_time()
+
     log(f"📊 CPU: {cpu}% | Memory: {mem}% | Web Servers: {current_count}")
+    log(f"⏱️ Response Time: {response_time} ms")
 
     decision = None
-    if (cpu > 80 or mem > 80) and current_count < MAX_INSTANCES:
+    # Threshold yang disesuaikan dengan praktik industri
+    CPU_THRESHOLD_HIGH = 80
+    MEM_THRESHOLD_HIGH = 80
+    RESPONSE_TIME_HIGH = 2000  # dalam ms, berdasarkan SLA umum 1.5 detik
+    CPU_THRESHOLD_LOW = 20
+    MEM_THRESHOLD_LOW = 30
+    RESPONSE_TIME_LOW = 800
+
+    # Keputusan Scale Out jika ada beban tinggi dari salah satu metrik
+    if (
+        (cpu > CPU_THRESHOLD_HIGH or mem > MEM_THRESHOLD_HIGH or (response_time and response_time > RESPONSE_TIME_HIGH))
+        and current_count < MAX_INSTANCES
+    ):
         decision = "Scale OUT"
-    elif (cpu < 20 and mem < 30) and current_count > MIN_INSTANCES:
+
+    # Keputusan Scale In jika semua metrik berada di bawah ambang rendah
+    elif (
+        cpu < CPU_THRESHOLD_LOW
+        and mem < MEM_THRESHOLD_LOW
+        and (response_time is None or response_time < RESPONSE_TIME_LOW)
+        and current_count > MIN_INSTANCES
+    ):
         decision = "Scale IN"
 
     if decision:
@@ -239,10 +281,15 @@ def autoscaling_decision():
             if not run_ansible_playbook(baru):
                 return
 
-        send_telegram_message(f"📢 [{decision}]\nJumlah VM: {current_count} ➔ {len(new_ips)}\nCPU: {cpu}%\nMemory: {mem}%\nWaktu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        send_telegram_message(
+            f"📢 [{decision}]\nJumlah VM: {current_count} ➔ {len(new_ips)}\n"
+            f"CPU: {cpu}% | Memory: {mem}% | RespTime: {response_time} ms\n"
+            f"Waktu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         log("📢 Scaling sukses diselesaikan!")
     else:
         log("✅ Decision: No Action")
+
 
 if __name__ == "__main__":
     autoscaling_decision()
