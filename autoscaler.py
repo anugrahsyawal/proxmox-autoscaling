@@ -76,7 +76,7 @@ def get_response_time(url="http://10.2.22.20/", num_requests=5):
     
     if not latencies:
         return None  # jika semua request gagal
-ansible
+
     # Ambil mean sebagai representasi latensi
     percentile_90 = statistics.quantiles(latencies, n=100)[89]
     return round(percentile_90 * 1000, 2)  # konversi ke ms
@@ -239,7 +239,7 @@ def autoscaling_decision():
     CPU_THRESHOLD_HIGH = 80
     MEM_THRESHOLD_HIGH = 80
     RESPONSE_TIME_HIGH = 5000  # dalam ms, berdasarkan SLA umum 5 detik untuk web statis
-    CPU_THRESHOLD_LOW = 20
+    CPU_THRESHOLD_LOW = 30
     MEM_THRESHOLD_LOW = 30
     RESPONSE_TIME_LOW = 800
 
