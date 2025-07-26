@@ -5,10 +5,17 @@
     state: present
     update_cache: true
 
-- name:   
+- name: Copy custom Nginx load balancer config
   template:
     src: nginx-lb.conf.j2
-    dest: /etc/nginx/sites-available/loadbalancer
+    dest: /etc/nginx/sites-available/default
+  notify: Reload nginx
+
+- name: Enable new site by creating a symbolic link
+  file:
+    src: /etc/nginx/sites-available/default
+    dest: /etc/nginx/sites-enabled/default
+    state: link
   notify: Reload nginx
 
 - name: Ensure nginx is running

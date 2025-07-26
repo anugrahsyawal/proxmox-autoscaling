@@ -29,7 +29,7 @@ resource "proxmox_vm_qemu" "web_server" {
   for_each    = local.web_vms
   name        = each.value.name
   target_node = "cnap3"
-  clone       = "ubuntu-cloudinit-template.v2"
+  clone       = "web-server-template"
   full_clone  = true
   vmid        = each.value.vmid
 
@@ -99,10 +99,10 @@ resource "proxmox_vm_qemu" "load_balancer" {
   name        = "lb-nginx"
   target_node = "cnap3"
   clone       = "ubuntu-cloudinit-template.v2"
-  vmid        = 202
+  vmid        = 210
 
   agent             = 1
-  cores             = 1
+  cores             = 2
   memory            = 2048
   scsihw            = "virtio-scsi-single"
   boot              = "order=scsi0"

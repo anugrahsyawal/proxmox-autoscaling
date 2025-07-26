@@ -62,24 +62,33 @@ def get_average_metrics():
     mem_avg = sum(float(item['value'][1]) for item in mem_result) / len(mem_result) if mem_result else 0.0
     return round(cpu_avg, 2), round(mem_avg, 2)
 
-def get_response_time(url="http://10.2.22.20/", num_requests=5):
+def get_response_time(url="http://10.2.22.20/", num_requests=5, request_timeout=5, percentile=90):
     latencies = []
     for _ in range(num_requests):
         try:
             start = time.time()
-            response = requests.get(url, timeout=5)
+            # Gunakan variabel request_timeout di sini
+            response = requests.get(url, timeout=request_timeout)
             elapsed = time.time() - start
             if response.status_code == 200:
                 latencies.append(elapsed)
         except Exception as e:
-            log(f"⚠️ Error saat mengukur latency: {e}")
+            #log(f"⚠️ Error saat mengukur latency: {e}")
+            # HUKUM TIMEOUT: Anggap latensinya adalah nilai timeout itu sendiri
+            latencies.append(request_timeout) 
     
     if not latencies:
-        return None  # jika semua request gagal
+        return None
 
-    # Ambil mean sebagai representasi latensi
-    percentile_90 = statistics.quantiles(latencies, n=100)[89]
-    return round(percentile_90 * 1000, 2)  # konversi ke ms
+    # Mengurutkan latensi untuk perhitungan persentil yang andal
+    latencies.sort()
+    
+    if len(latencies) > 1:
+        p_value = statistics.quantiles(latencies, n=100)[percentile - 1]
+    else:
+        p_value = latencies[0] # Jika hanya ada satu data, itu hasilnya
+
+    return round(p_value * 1000, 2)  # konversi ke ms
 
 def read_current_ips():
     if not os.path.exists(TFVARS_FILE):
@@ -122,21 +131,6 @@ def run_terraform_apply():
         send_telegram_message(f"❌ Terraform Apply Gagal!\nError: {e}\nWaktu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         return False
 
-def wait_for_ssh(ip_list, port=22, timeout=300):
-    for ip in ip_list:
-        log(f"⏳ Menunggu SSH {ip}:{port} bisa diakses...")
-        start = time.time()
-        while time.time() - start < timeout:
-            try:
-                s = socket.create_connection((ip, port), timeout=5)
-                s.close()
-                log(f"✅ SSH pada {ip}:{port} sudah bisa diakses.")
-                break
-            except (socket.timeout, ConnectionRefusedError, OSError):
-                time.sleep(5)
-        else:
-            log(f"❌ Timeout: SSH {ip}:{port} tidak bisa diakses setelah {timeout} detik.")
-
 def update_inventory(ip_list):
     content = "[webserver]\n"
     for ip in ip_list:
@@ -148,21 +142,8 @@ def update_inventory(ip_list):
         f.write(content)
     log("📄 inventory.ini berhasil diupdate.")
 
-def run_ansible_playbook(new_ips):
-    if not new_ips:
-        return True
-    try:
-        log(f"📦 Menjalankan Ansible playbook untuk: {new_ips}")
-        subprocess.run(["ansible-playbook", "playbook.yml", "--limit", ",".join(new_ips)], cwd="ansible", check=True)
-        log("✅ Ansible playbook berhasil.")
-        return True
-    except subprocess.CalledProcessError as e:
-        log(f"❌ Ansible playbook gagal: {e}")
-        send_telegram_message(f"❌ Ansible Playbook Gagal!\nError: {e}\nWaktu: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        return False
-
 def update_load_balancer(ip_list):
-    nginx_conf = "upstream backend {\n" + "\n".join(f"    server {ip};" for ip in ip_list) + "\n}\n\nserver {\n    listen 80;\n    server_name _;\n    location /wordpress {\n        proxy_pass http://backend;\n    }\n}\n"
+    nginx_conf = "upstream backend {\n" + "\n".join(f"    server {ip};" for ip in ip_list) + "\n}\n\nserver {\n    listen 80;\n    server_name _;\n    location / {\n        proxy_pass http://backend;\n    }\n}\n"
     with open("ansible/roles/loadbalancer/templates/nginx-lb.conf.j2", "w") as f:
         f.write(nginx_conf)
     log("📄 nginx-lb.conf berhasil dibuat.")
@@ -245,7 +226,7 @@ def autoscaling_decision():
 
     # Keputusan Scale Out jika ada beban tinggi dari salah satu metrik
     if (
-        (cpu > CPU_THRESHOLD_HIGH or mem > MEM_THRESHOLD_HIGH or (response_time and response_time > RESPONSE_TIME_HIGH))
+        (cpu > CPU_THRESHOLD_HIGH or mem > MEM_THRESHOLD_HIGH or (response_time and response_time >= RESPONSE_TIME_HIGH))
         and current_count < MAX_INSTANCES
     ):
         decision = "Scale OUT"
@@ -270,16 +251,10 @@ def autoscaling_decision():
         if not run_terraform_apply():
             return
 
-        wait_for_ssh(new_ips)  # Tunggu VM siap SSH
         update_inventory(new_ips)
         update_prometheus_config(new_ips)
         if not update_load_balancer(new_ips):
             return
-
-        if decision == "Scale OUT":
-            baru = list(set(new_ips) - set(current_ips))
-            if not run_ansible_playbook(baru):
-                return
 
         send_telegram_message(
             f"📢 [{decision}]\nJumlah VM: {current_count} ➔ {len(new_ips)}\n"
